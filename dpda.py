@@ -65,33 +65,40 @@ class DPDA:
             print >>stream, 'Accepted' if self.test(string, stream) else 'Rejected'
             print >>stream
 
-            if 'Accept' in test_fname:
-                if not self.test(string, stream):
-                    sys.exit(1)
-            else:
-                if self.test(string, stream):
-                    sys.exit(1)
+            if shell:
+                if 'Accept' in test_fname:
+                    if not self.test(string, stream):
+                        sys.exit(1)
+                else:
+                    if self.test(string, stream):
+                        sys.exit(1)
 
 
     def test(self, string, stream=sys.stdout):
 
         print >>stream, 'String: ', string
         self.reset()
+        i = 0
 
-        for i, char in enumerate(string):
+        while i < len(string):
 
-            rule, rhs  = self.getrule(self.q, char, self.stack[-1] if self.stack else '~')
+            char = '~' if i == len(string) else string[i]
+            rule, rhs = self.getrule(self.q, char, self.stack[-1] if self.stack else '~') or (None, None)
 
-            if char not in self.E or not rhs:
+            if rhs or i == len(string):
+                print >>stream, '{}#{}: {}, {}, {} | {}, {}'.format(i + 1,\
+                        self.d.keys().index(rule) + 1 if rule in self.d.keys() else 1,\
+                        rule[0], rule[1], rule[2], rhs[0], rhs[1])
+
+                if rule[1] != '~':
+                    i += 1
+
+                self.transition(rule)
+
+            else:
                 return False
 
-            print >>stream, '{}#{}: {}, {}, {} | {}, {}'.format(i + 1,\
-                    self.d.keys().index(rule) + 1 if rule in self.d.keys() else 1,\
-                    rule[0], rule[1], rule[2], rhs[0], rhs[1])
-
-            self.transition(rule)
-
-        return self.q in self.F and not self.stack
+        return self.accepted()
 
     def transition(self, rule):
         rhs       = self.getrule(*rule)[1]
@@ -101,23 +108,27 @@ class DPDA:
             self.stack.append(rhs[1])
 
     def getrule(self, state, char, stackchar='~'):
-        if self.d.get((state, char, '~')):
-            return ((state, char, '~'), self.d.get((state, char, '~')))
-        elif self.d.get((state, '~', '~')):
-            return ((state, '~', '~'), self.d.get((state, char, '~')))
-        elif self.d.get((state, '~', stackchar)):
-            return ((state, '~', stackchar), self.d.get((state, '~', stackchar)))
-        return ((state, char, stackchar), self.d.get((state, char, stackchar)))
+        for rule in self.perms(state, char, stackchar):
+            if rule in self.d:
+                return (rule, self.d.get(rule))
+        return None
 
     def step(self):
         string = ''
         while string != 'quit':
             string = raw_input('> ')
-            self.test(string)
+            print 'Accepted' if self.test(string) else 'Rejected'
+            print
 
     def reset(self):
         self.stack = []
         self.q = self.q0
+
+    def perms(self, state, char, stackchar='~'):
+        return ((state, char, stackchar), (state, char, '~'), (state, '~', stackchar), (state, '~', '~'))
+
+    def accepted(self):
+        return self.q in self.F and not self.stack
 
 
 #================
@@ -132,7 +143,10 @@ if __name__ == '__main__':
     SHELL       = False
 
     def usage():
-        print >>sys.stderr, '''usage: {} DEFINITION_FILE TEST_FILE [ -h ]
+        print >>sys.stderr, '''usage: {} DEFINITION_FILE TEST_FILE [ -s -i -h ]
+
+    -s      Enable shell mode (disable output and communicate test status via exit code)
+    -i      Enable interactive mode (input individual strings for test)
     -h      Display this help message
 
     DEFINITION_FILE is the name of the file which has the specifications
@@ -154,7 +168,7 @@ if __name__ == '__main__':
     if args:
         if args[0]:
             DEFN_FNAME = args[0]
-        if args[1]:
+        if len(args) > 1 and args[1]:
             TEST_FNAME = args[1]
 
     uut = DPDA(DEFN_FNAME, SHELL)

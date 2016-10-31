@@ -2,7 +2,7 @@
 
 RESULT=0
 
-for i in `seq 1 3`; do
+for i in `seq 1 4`; do
     echo "Testing M$i"
     if (./dpda.py -s M$i.txt M$i-Accept.txt); then
         echo "Accept test for M$i PASSED"
