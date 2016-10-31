@@ -46,5 +46,5 @@ $ ./test.sh
 Testing M1
 Accept test for M1 PASSED
 Reject test for M1 PASSED
-# ...
+...
 ```
